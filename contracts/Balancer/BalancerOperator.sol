@@ -43,6 +43,7 @@ contract BalancerOperator is IVault, Ownable {
         address[] calldata assets,
         uint256[] calldata maxAmountsIn
     ) external {
+        require(assets.length == maxAmountsIn.length, "Assets and Amouns must be Same Length");
         uint256 oneUint256 = 1;
         bytes memory userDataEncoded = abi.encode(oneUint256, maxAmountsIn, oneUint256); //https://dev.balancer.fi/helpers/encoding
         JoinPoolRequest memory InRequest = JoinPoolRequest(assets, maxAmountsIn, userDataEncoded, false);
@@ -67,6 +68,7 @@ contract BalancerOperator is IVault, Ownable {
         address[] calldata assets,
         uint256[] calldata minAmountsOut
     ) external {
+        require(assets.length == minAmountsOut.length, "Assets and Amouns must be Same Length");
         uint256 oneUint256 = 1;
         bytes memory userDataEncoded = abi.encode(oneUint256, minAmountsOut, oneUint256); //https://dev.balancer.fi/helpers/encoding
         ExitPoolRequest memory InitOutRequest = ExitPoolRequest(assets, minAmountsOut, userDataEncoded, false);
