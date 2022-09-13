@@ -1,7 +1,9 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: M.I.T.
 pragma solidity ^0.8.9;
 
 interface IVault {
+    function getPool(bytes32 poolId) external returns (address, uint8);
+
     /**
      * @dev Called by users to join a Pool, which transfers tokens from `sender` into the Pool's balance. This will
      * trigger custom Pool behavior, which will typically grant something in return to `recipient` - often tokenized
@@ -120,8 +122,8 @@ interface IVault {
     struct SingleSwap {
         bytes32 poolId;
         SwapKind kind;
-        address/**IAsset*/ assetIn;
-        address/**IAsset*/ assetOut;
+        address assetIn;
+        address assetOut;
         uint256 amount;
         bytes userData;
     }
@@ -173,7 +175,10 @@ interface IVault {
     //
     // Finally, Internal Balance can be used when either sending or receiving tokens.
 
-    enum SwapKind { GIVEN_IN, GIVEN_OUT }
+    enum SwapKind {
+        GIVEN_IN,
+        GIVEN_OUT
+    }
 
     /**
      * @dev Performs a swap with a single Pool.
