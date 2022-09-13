@@ -1,12 +1,13 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: M.I.T.
 pragma solidity ^0.8.9;
 
-import { IERC20Modified } from "../IERC20Modified.sol";
 import { IBPool } from "./IBPool.sol";
 
 import { IVault } from "./IVault.sol";
 import { IBalancerHelpers } from "./IBalancerHelpers.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Balancer Pool Operator Example.
 /// @author Ignacio Ceaglio for 10Clouds.
@@ -30,6 +31,17 @@ contract BalancerOperator is IVault, Ownable {
     /** @dev When providing your assets, you must ensure that the tokens are sorted numerically by token address. It's also important
     to note that the values in maxAmountsIn correspond to the same index value in assets, so these arrays must be made in parallel
     after sorting.*/
+    using SafeERC20 for IERC20;
+
+    address BalancerVaultAddr = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+    IVault Vault = IVault(BalancerVaultAddr);
+
+    enum ExitKind {
+        EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+        EXACT_BPT_IN_FOR_TOKENS_OUT,
+        BPT_IN_FOR_EXACT_TOKENS_OUT,
+        MANAGEMENT_FEE_TOKENS_OUT // for InvestmentPool
+    }
 
     IBalancerHelpers BalancerHelpers = IBalancerHelpers(0x5aDDCCa35b7A0D07C74063c48700C8590E87864E);
 
@@ -38,39 +50,35 @@ contract BalancerOperator is IVault, Ownable {
     }
 
     function addLiquidity(
-        address vaultAddr,
         bytes32 poolId,
         address[] calldata assets,
         uint256[] calldata maxAmountsIn
     ) external {
         require(assets.length == maxAmountsIn.length, "Assets and Amouns must be Same Length");
-        uint256 oneUint256 = 1;
-        bytes memory userDataEncoded = abi.encode(oneUint256, maxAmountsIn, oneUint256); //https://dev.balancer.fi/helpers/encoding
+        bytes memory userDataEncoded = abi.encode(uint256(1), maxAmountsIn, uint256(1)); //https://dev.balancer.fi/helpers/encoding
         JoinPoolRequest memory InRequest = JoinPoolRequest(assets, maxAmountsIn, userDataEncoded, false);
 
         for (uint256 i = 0; i < maxAmountsIn.length; i++) {
             if (maxAmountsIn[i] > 0) {
-                IERC20Modified(assets[i]).transferFrom(msg.sender, address(this), maxAmountsIn[i]);
-                IERC20Modified(assets[i]).approve(vaultAddr, maxAmountsIn[i]);
+                IERC20(assets[i]).transferFrom(msg.sender, address(this), maxAmountsIn[i]);
+                IERC20(assets[i]).approve(BalancerVaultAddr, maxAmountsIn[i]);
             }
         }
 
-        IVault(vaultAddr).joinPool(poolId, address(this), msg.sender, InRequest);
+        Vault.joinPool(poolId, address(this), msg.sender, InRequest);
     }
 
     /** @dev When providing your assets, you must ensure that the tokens are sorted numerically by token address. It's also important
     to note that the values in maxAmountsIn correspond to the same index value in assets, so these arrays must be made in parallel
     after sorting.*/
     function removeLiquidity(
-        address vaultAddr,
         bytes32 poolId,
-        address poolAddress,
         address[] calldata assets,
         uint256[] calldata minAmountsOut
     ) external {
         require(assets.length == minAmountsOut.length, "Assets and Amouns must be Same Length");
-        uint256 oneUint256 = 1;
-        bytes memory userDataEncoded = abi.encode(oneUint256, minAmountsOut, oneUint256); //https://dev.balancer.fi/helpers/encoding
+        (address poolAddress, uint8 unusedUint8) = Vault.getPool(poolId);
+        bytes memory userDataEncoded = abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, minAmountsOut, uint256(1)); //https://dev.balancer.fi/helpers/encoding
         ExitPoolRequest memory InitOutRequest = ExitPoolRequest(assets, minAmountsOut, userDataEncoded, false);
         (uint256 bptIn, uint256[] memory amountsOut) = BalancerHelpers.queryExit(
             poolId,
@@ -81,25 +89,23 @@ contract BalancerOperator is IVault, Ownable {
         ExitPoolRequest memory FinalOutRequest = ExitPoolRequest(assets, amountsOut, userDataEncoded, false);
 
         //-User's L.P. ERC-20 Tokens are Transferred to the Operator S.C.:
-        uint256 userLPTokensAmount = IERC20Modified(poolAddress).balanceOf(msg.sender);
-        IERC20Modified(poolAddress).transferFrom(msg.sender, address(this), userLPTokensAmount);
-        IERC20Modified(poolAddress).approve(vaultAddr, userLPTokensAmount);
+        uint256 userLPTokensAmount = IERC20(poolAddress).balanceOf(msg.sender);
+        IERC20(poolAddress).transferFrom(msg.sender, address(this), userLPTokensAmount);
+        IERC20(poolAddress).approve(BalancerVaultAddr, userLPTokensAmount);
 
-        IVault(vaultAddr).exitPool(poolId, address(this), payable(msg.sender), FinalOutRequest);
+        Vault.exitPool(poolId, address(this), payable(msg.sender), FinalOutRequest);
     }
 
     function exchangeTokens(
-        address vaultAddr,
         bytes32 poolId,
         address tokenInAddress,
         uint256 maxAmountIn,
         address tokenOutAddress
     ) external {
-        uint256 oneUint256 = 1;
-        IERC20Modified(tokenInAddress).transferFrom(msg.sender, address(this), maxAmountIn);
-        IERC20Modified(tokenInAddress).approve(vaultAddr, maxAmountIn);
+        IERC20(tokenInAddress).transferFrom(msg.sender, address(this), maxAmountIn);
+        IERC20(tokenInAddress).approve(BalancerVaultAddr, maxAmountIn);
 
-        bytes memory userDataEncoded = abi.encode(oneUint256, maxAmountIn, oneUint256); //https://dev.balancer.fi/helpers/encoding
+        bytes memory userDataEncoded = abi.encode(uint256(1), maxAmountIn, uint256(1)); //https://dev.balancer.fi/helpers/encoding
         SingleSwap memory SingleSwapRequest = SingleSwap(
             poolId,
             SwapKind.GIVEN_OUT,
@@ -109,8 +115,11 @@ contract BalancerOperator is IVault, Ownable {
             userDataEncoded
         );
         FundManagement memory FundManagementRequest = FundManagement(address(this), false, payable(msg.sender), false);
-        IVault(vaultAddr).swap(SingleSwapRequest, FundManagementRequest, maxAmountIn, (block.timestamp + 3 minutes));
+        Vault.swap(SingleSwapRequest, FundManagementRequest, maxAmountIn, (block.timestamp + 3 minutes));
     }
+
+    //-Empty "getPool" Function Implementation Required by the IVault Interface:
+    function getPool(bytes32 poolId) public returns (address, uint8) {}
 
     //-Empty "joinPool" Function Implementation Required by the IVault Interface:
     function joinPool(
