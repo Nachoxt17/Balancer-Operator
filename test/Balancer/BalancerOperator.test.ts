@@ -18,10 +18,10 @@ describe("Balancer Pool S.Contract", function () {
     admin = await ethers.getImpersonatedSigner(DAI_WHALE);
     user1 = await ethers.getImpersonatedSigner(WETH_WHALE);
 
-    usdcToken = await ethers.getContractAt("IERC20Modified", USDC, admin);
-    wethToken = await ethers.getContractAt("IERC20Modified", WETH, admin);
+    usdcToken = await ethers.getContractAt("IERC20", USDC, admin);
+    wethToken = await ethers.getContractAt("IERC20", WETH, admin);
 
-    LPtoken = await ethers.getContractAt("IERC20Modified", LP_TOKEN, admin);
+    LPtoken = await ethers.getContractAt("IERC20", LP_TOKEN, admin);
 
     let BalancerOperator = await ethers.getContractFactory("BalancerOperator");
     operator = await BalancerOperator.deploy();
@@ -42,8 +42,7 @@ describe("Balancer Pool S.Contract", function () {
 
     await operator
       .connect(user1)
-      .addLiquidity(BALANCER_VAULT_ADDRESS,
-      BALANCER_POOL_ID,
+      .addLiquidity(BALANCER_POOL_ID,
       [USDC, WETH],
       [ethers.utils.parseUnits("100", DECIMALS),
       ethers.utils.parseUnits("2", 18)]);
@@ -79,9 +78,7 @@ describe("Balancer Pool S.Contract", function () {
     await LPtoken.connect(user1).approve(operator.address, user1LPTokensBefore);
 
     await operator.connect(user1)
-    .removeLiquidity(BALANCER_VAULT_ADDRESS,
-      BALANCER_POOL_ID,
-      LP_TOKEN,
+    .removeLiquidity(BALANCER_POOL_ID,
       [USDC, WETH],
       [ethers.utils.parseUnits("100", DECIMALS),
       ethers.utils.parseUnits("2", 18)]);
@@ -116,7 +113,6 @@ describe("Balancer Pool S.Contract", function () {
 
     await operator.connect(user1)
     .exchangeTokens(
-      BALANCER_VAULT_ADDRESS,
       BALANCER_POOL_ID,
       USDC,
       ethers.utils.parseUnits("1000", DECIMALS),
