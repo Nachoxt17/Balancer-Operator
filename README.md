@@ -1,4 +1,6 @@
 # De.Fi.-WhiteLabel-Smart-Contracts
+## Balancer-Intermediary-Operator
+### These Smart Contracts serve as a template or easier gateway for Developers to Integrate their new De.Fi. projects with Balancer Pools, without having to spend hours at a time reading their Documentations. The hard work has been done by me already and you can simply fork this to implement interactions with Balancer Pools.
 
 - How to Interact with the Deployed Smart Contract:
   https://docs.alchemy.com/alchemy/tutorials/hello-world-smart-contract/interacting-with-a-smart-contract#step-6-update-the-message
